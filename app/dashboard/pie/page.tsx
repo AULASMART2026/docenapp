@@ -12,6 +12,20 @@ export default function PIE() {
   const [loading, setLoading] = useState(false);
   const supabase = createClient();
 
+  const tipos = [
+    { value: "adecuacion", label: "📋 Adecuacion Curricular" },
+    { value: "paci", label: "📄 Plan PACI" },
+    { value: "informe_direccion", label: "🏫 Informe PIE para Direccion" },
+    { value: "informe_familia", label: "👨‍👩‍👧 Informe para la Familia (Decreto 170)" },
+    { value: "informe_fonoaudiologico", label: "🗣️ Informe Fonoaudiologico" },
+    { value: "informe_psicologico", label: "🧠 Informe Psicologico" },
+    { value: "informe_psicopedagogico", label: "📚 Informe Psicopedagogico" },
+    { value: "estrategias", label: "💡 Estrategias de Apoyo en Aula" },
+    { value: "plan_intervencion_fonoaudiologico", label: "📝 Plan de Intervencion Fonoaudiologico" },
+    { value: "plan_intervencion_psicologico", label: "📝 Plan de Intervencion Psicologico" },
+    { value: "plan_intervencion_psicopedagogico", label: "📝 Plan de Intervencion Psicopedagogico" },
+  ];
+
   async function generar() {
     if (nombre.length < 3) return;
     setLoading(true);
@@ -54,13 +68,26 @@ export default function PIE() {
             placeholder="Ej: TEA, TDAH, discapacidad intelectual leve" />
         </div>
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de documento PIE</label>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Tipo de documento</label>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}
             className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400">
-            <option value="adecuacion">Adecuacion Curricular</option>
-            <option value="paci">Plan PACI</option>
-            <option value="informe">Informe PIE para Direccion</option>
-            <option value="estrategias">Estrategias de Apoyo en Aula</option>
+            <optgroup label="— Informes —">
+              <option value="informe_direccion">🏫 Informe PIE para Direccion</option>
+              <option value="informe_familia">👨‍👩‍👧 Informe para la Familia (Decreto 170)</option>
+              <option value="informe_fonoaudiologico">🗣️ Informe Fonoaudiologico</option>
+              <option value="informe_psicologico">🧠 Informe Psicologico</option>
+              <option value="informe_psicopedagogico">📚 Informe Psicopedagogico</option>
+            </optgroup>
+            <optgroup label="— Planes de Intervencion —">
+              <option value="plan_intervencion_fonoaudiologico">📝 Plan Fonoaudiologico</option>
+              <option value="plan_intervencion_psicologico">📝 Plan Psicologico</option>
+              <option value="plan_intervencion_psicopedagogico">📝 Plan Psicopedagogico</option>
+            </optgroup>
+            <optgroup label="— Adecuaciones —">
+              <option value="adecuacion">📋 Adecuacion Curricular</option>
+              <option value="paci">📄 Plan PACI</option>
+              <option value="estrategias">💡 Estrategias de Apoyo en Aula</option>
+            </optgroup>
           </select>
         </div>
         <button onClick={generar} disabled={loading || nombre.length < 3}
