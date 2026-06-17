@@ -6,10 +6,10 @@ export default function Escaneo() {
   const [resultado, setResultado] = useState("");
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState("");
-  const inputRef = useRef(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
 
-  async function handleArchivo(e) {
+  async function handleArchivo(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
     setPreview(URL.createObjectURL(file));
@@ -17,7 +17,7 @@ export default function Escaneo() {
     setResultado("");
     const reader = new FileReader();
     reader.onload = async () => {
-      const base64 = reader.result.split(",")[1];
+      const base64 = (reader.result as string).split(",")[1];
       const mediaType = file.type;
       const res = await fetch("/api/generar", {
         method: "POST",
