@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const links = [
     { href: "/dashboard", icon: "🏠", label: "Inicio" },
+    { href: "/dashboard/estudiantes", icon: "👥", label: "Estudiantes" },
     { href: "/dashboard/rubrica", icon: "📋", label: "Rubricas" },
     { href: "/dashboard/planificacion", icon: "📅", label: "Planificaciones" },
     { href: "/dashboard/evaluacion", icon: "📝", label: "Evaluaciones" },
@@ -26,8 +27,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-gray-50 flex">
-      <aside className="w-16 md:w-56 bg-indigo-800 text-white flex flex-col py-6 px-2 md:px-4 fixed h-full z-10">
-        <div className="text-center mb-8">
+      <aside className="w-16 md:w-56 bg-indigo-800 text-white flex flex-col py-6 px-2 md:px-4 fixed h-full z-10 overflow-y-auto">
+        <div className="text-center mb-6">
           <div className="text-2xl">📚</div>
           <div className="hidden md:block font-bold text-sm mt-1">DocenApp</div>
         </div>
@@ -41,7 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           ))}
         </nav>
         <button onClick={cerrarSesion}
-          className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm hover:bg-indigo-700 transition">
+          className="flex items-center gap-3 px-2 py-2 rounded-lg text-sm hover:bg-indigo-700 transition mt-4">
           <span>🚪</span>
           <span className="hidden md:block">Cerrar sesion</span>
         </button>
