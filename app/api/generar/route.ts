@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-function getPrompt(tipo, b) {
+function getPrompt(tipo: string, b: any): string {
   if (tipo === "rubrica") return "Eres un experto en educacion chilena segun el curriculum MINEDUC. Crea una rubrica de evaluacion detallada para: " + b.tema + ". Nivel: " + b.nivel + ". Asignatura: " + b.asignatura + ". Incluye criterios, niveles de logro (Excelente, Bueno, Suficiente, Insuficiente) y puntajes. Formato de tabla en texto plano.";
   if (tipo === "planificacion") return "Eres un experto en didactica chilena segun MINEDUC. Crea una planificacion de clase completa para: " + b.tema + ". Nivel: " + b.nivel + ". Asignatura: " + b.asignatura + ". Duracion: " + b.horas + " horas pedagogicas. Incluye: objetivo de aprendizaje, habilidades, inicio/desarrollo/cierre, recursos y evaluacion. Usa terminologia MINEDUC.";
   if (tipo === "evaluacion") return "Eres un experto en evaluacion educativa chilena. Crea una " + b.tipoEval + " sobre: " + b.tema + ". Nivel: " + b.nivel + ". Asignatura: " + b.asignatura + ". Incluye instrucciones, preguntas variadas (seleccion multiple, desarrollo, terminos pareados) y puntaje total 100 puntos. Pauta de respuestas al final.";
@@ -11,11 +11,11 @@ function getPrompt(tipo, b) {
   return "Transcribe y digitaliza el contenido de este documento. Mantén la estructura original y presenta el texto limpio y ordenado.";
 }
 
-export async function POST(req) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { tipo, base64, mediaType } = body;
-    let messages;
+    let messages: any[];
     if (tipo === "escaneo" && base64) {
       messages = [{
         role: "user",
