@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState } from "react";
 import { createClient } from "../../../lib/supabase-client";
+import ResultadoPDF from "../../../components/ui/ResultadoPDF";
 
 export default function Rubrica() {
   const [tema, setTema] = useState("");
@@ -11,6 +12,7 @@ export default function Rubrica() {
   const supabase = createClient();
 
   async function generar() {
+    if (tema.length < 3) return;
     setLoading(true);
     setResultado("");
     const res = await fetch("/api/generar", {
@@ -24,6 +26,15 @@ export default function Rubrica() {
     if (user) await supabase.from("documentos").insert({ docente_id: user.id, tipo: "rubrica", titulo: tema, contenido: data.contenido });
     setLoading(false);
   }
+
+  const limpiarTexto = (texto: string) => {
+    return texto
+      .replace(/\|/g, "")
+      .replace(/---+/g, "________________")
+      .replace(/\*\*(.*?)\*\*/g, "$1")
+      .replace(/#{1,6}\s/g, "")
+      .trim();
+  };
 
   return (
     <div className="max-w-3xl mx-auto">
@@ -52,18 +63,18 @@ export default function Rubrica() {
               placeholder="Ej: Lenguaje" />
           </div>
         </div>
-        <button onClick={generar} disabled={loading || !tema}
+        <button onClick={generar} disabled={loading || tema.length < 3}
           className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
           {loading ? "Generando..." : "Generar Rubrica con IA"}
         </button>
       </div>
       {resultado && (
         <div className="bg-white rounded-xl shadow-sm p-6">
-          <div className="flex justify-between items-center mb-4">
+          <div className="flex justify-between items-center mb-4 flex-wrap gap-2">
             <h2 className="font-semibold text-gray-700">Resultado</h2>
-            <button onClick={() => navigator.clipboard.writeText(resultado)} className="text-sm text-indigo-600 hover:underline">Copiar</button>
+            <ResultadoPDF contenido={limpiarTexto(resultado)} titulo={"Rubrica - " + tema} />
           </div>
-          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">{resultado}</pre>
+          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans mt-4">{limpiarTexto(resultado)}</pre>
         </div>
       )}
     </div>
