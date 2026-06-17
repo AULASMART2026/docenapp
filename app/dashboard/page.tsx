@@ -6,7 +6,7 @@ import Link from "next/link";
 export default function Dashboard() {
   const [nombre, setNombre] = useState("");
   const [total, setTotal] = useState(0);
-  const [porTipo, setPorTipo] = useState([]);
+  const [porTipo, setPorTipo] = useState<{tipo: string; count: number}[]>([]);
   const supabase = createClient();
 
   useEffect(() => {
@@ -18,7 +18,7 @@ export default function Dashboard() {
       const { data: docs } = await supabase.from("documentos").select("tipo").eq("docente_id", user.id);
       if (docs) {
         setTotal(docs.length);
-        const conteo = {};
+        const conteo: Record<string, number> = {};
         docs.forEach((d) => { conteo[d.tipo] = (conteo[d.tipo] || 0) + 1; });
         setPorTipo(Object.entries(conteo).map(([tipo, count]) => ({ tipo, count })));
       }
