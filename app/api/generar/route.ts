@@ -17,13 +17,10 @@ export async function POST(req: Request) {
     const { tipo, base64, mediaType } = body;
     let messages: any[];
     if (tipo === "escaneo" && base64) {
-      messages = [{
-        role: "user",
-        content: [
-          { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: base64 } },
-          { type: "text", text: getPrompt("escaneo", body) }
-        ]
-      }];
+      messages = [{ role: "user", content: [
+        { type: "image", source: { type: "base64", media_type: mediaType || "image/jpeg", data: base64 } },
+        { type: "text", text: getPrompt("escaneo", body) }
+      ]}];
     } else {
       messages = [{ role: "user", content: getPrompt(tipo, body) }];
     }

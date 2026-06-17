@@ -1,6 +1,7 @@
 ﻿"use client";
 import { useState } from "react";
 import { createClient } from "../../../lib/supabase-client";
+import ResultadoPDF from "../../../components/ui/ResultadoPDF";
 
 export default function Planificacion() {
   const [tema, setTema] = useState("");
@@ -12,6 +13,7 @@ export default function Planificacion() {
   const supabase = createClient();
 
   async function generar() {
+    if (tema.length < 3) return;
     setLoading(true);
     setResultado("");
     const res = await fetch("/api/generar", {
@@ -58,7 +60,7 @@ export default function Planificacion() {
               className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
           </div>
         </div>
-        <button onClick={generar} disabled={loading || !tema}
+        <button onClick={generar} disabled={loading || tema.length < 3}
           className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold hover:bg-indigo-700 transition disabled:opacity-50">
           {loading ? "Generando..." : "Generar Planificacion con IA"}
         </button>
@@ -67,9 +69,9 @@ export default function Planificacion() {
         <div className="bg-white rounded-xl shadow-sm p-6">
           <div className="flex justify-between items-center mb-4">
             <h2 className="font-semibold text-gray-700">Resultado</h2>
-            <button onClick={() => navigator.clipboard.writeText(resultado)} className="text-sm text-indigo-600 hover:underline">Copiar</button>
+            <ResultadoPDF contenido={resultado} titulo={"Planificacion - " + tema} />
           </div>
-          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans">{resultado}</pre>
+          <pre className="whitespace-pre-wrap text-sm text-gray-700 font-sans mt-4">{resultado}</pre>
         </div>
       )}
     </div>
