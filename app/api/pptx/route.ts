@@ -1,12 +1,23 @@
 ﻿import { NextResponse } from "next/server";
 import pptxgen from "pptxgenjs";
 
-async function getImg(query: string, sig: number): Promise<string | null> {
+async function getImg(query: string, page: number): Promise<string | null> {
   try {
-    const res = await fetch("https://source.unsplash.com/960x540/?" + encodeURIComponent(query) + "&sig=" + sig, { signal: AbortSignal.timeout(8000) });
+    const key = process.env.PEXELS_API_KEY;
+    const q = encodeURIComponent(query);
+    const res = await fetch("https://api.pexels.com/v1/search?query=" + q + "&per_page=1&page=" + (page + 1) + "&orientation=landscape", {
+      headers: { Authorization: key || "" },
+      signal: AbortSignal.timeout(8000)
+    });
     if (!res.ok) return null;
-    const buf = await res.arrayBuffer();
-    return "data:" + (res.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
+    const data = await res.json();
+    const url = data?.photos?.[0]?.src?.large;
+    if (!url) return null;
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!imgRes.ok) return null;
+    const buf = await imgRes.arrayBuffer();
+    const ct = imgRes.headers.get("content-type") || "image/jpeg";
+    return "data:" + ct + ";base64," + Buffer.from(buf).toString("base64");
   } catch { return null; }
 }
 
@@ -16,7 +27,7 @@ export async function POST(req: Request) {
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    const imgs = await Promise.all(slides.map((_: any, i: number) => getImg(tema + " " + asignatura, i)));
+    const imgs = await Promise.all(slides.map((_: any, i: number) => getImg(tema + " education", i)));
 
     for (let i = 0; i < slides.length; i++) {
       const sl = slides[i];
