@@ -8,44 +8,14 @@ async function getQueryIA(tema: string, titulo: string): Promise<string> {
   try {
     const res = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 15,
-      messages: [{ role: "user", content: "Dame 2-3 palabras en ingles para buscar imagen en Wikimedia de: " + tema + " " + titulo + ". Solo palabras." }]
+      max_tokens: 20,
+      messages: [{ role: "user", content: "3 palabras en ingles para buscar foto en Pexels relacionada con: " + tema + " " + titulo + ". Solo palabras." }]
     });
     return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
-  } catch { return tema; }
+  } catch { return tema + " education"; }
 }
 
-async function getImgWikimedia(query: string): Promise<string | null> {
-  try {
-    const url = "https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(query) + "&srnamespace=6&srlimit=5&format=json&origin=*";
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const results = data?.query?.search || [];
-    if (!results.length) return null;
-    for (const r of results) {
-      const title = r.title;
-      const ext = title.toLowerCase();
-      if (!ext.endsWith(".jpg") && !ext.endsWith(".jpeg") && !ext.endsWith(".png")) continue;
-      const infoUrl = "https://commons.wikimedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*";
-      const infoRes = await fetch(infoUrl, { signal: AbortSignal.timeout(8000) });
-      if (!infoRes.ok) continue;
-      const infoData = await infoRes.json();
-      const pages = Object.values(infoData?.query?.pages || {}) as any[];
-      const imgUrl = pages[0]?.imageinfo?.[0]?.thumburl || pages[0]?.imageinfo?.[0]?.url;
-      if (!imgUrl) continue;
-      const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(8000) });
-      if (!imgRes.ok) continue;
-      const buf = await imgRes.arrayBuffer();
-      const ct = imgRes.headers.get("content-type") || "image/jpeg";
-      if (!ct.startsWith("image/")) continue;
-      return "data:" + ct + ";base64," + Buffer.from(buf).toString("base64");
-    }
-    return null;
-  } catch { return null; }
-}
-
-async function getImgPexels(query: string, page: number): Promise<string | null> {
+async function getImg(query: string, page: number): Promise<string | null> {
   try {
     const key = process.env.PEXELS_API_KEY;
     const res = await fetch("https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=5&page=1&orientation=landscape", {
@@ -65,20 +35,14 @@ async function getImgPexels(query: string, page: number): Promise<string | null>
   } catch { return null; }
 }
 
-async function getImagen(tema: string, titulo: string, index: number): Promise<string | null> {
-  const query = await getQueryIA(tema, titulo);
-  const wiki = await getImgWikimedia(query);
-  if (wiki) return wiki;
-  return await getImgPexels(query + " education", index);
-}
-
 export async function POST(req: Request) {
   try {
     const { slides, tema, asignatura, nivel } = await req.json();
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    const imgs = await Promise.all(slides.map((sl: any, i: number) => getImagen(tema, sl.titulo || tema, i)));
+    const queries = await Promise.all(slides.map((sl: any) => getQueryIA(tema, sl.titulo || tema)));
+    const imgs = await Promise.all(queries.map((q: string, i: number) => getImg(q, i)));
 
     const COLS = [
       { h: "1D4ED8", a: "F97316", bg: "EFF6FF", t: "1E3A8A" },
@@ -126,7 +90,6 @@ export async function POST(req: Request) {
         s.addShape("rect", { x: 0, y: 0, w: 0.45, h: 1.2, fill: { color: c.a }, line: { color: c.a } });
         s.addText(sl.titulo || "", { x: 0.65, y: 0.15, w: 8.0, h: 0.9, fontSize: 21, bold: true, color: "FFFFFF", valign: "middle" });
         s.addText(i + "/" + (slides.length - 1), { x: 8.5, y: 0.3, w: 1.3, h: 0.6, fontSize: 11, color: "FFFFFF", align: "right" });
-
         if (img) {
           const dr = i % 2 !== 0;
           const ix = dr ? 5.6 : 0.3;
