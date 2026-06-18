@@ -4,7 +4,7 @@ import { createClient } from "../../../lib/supabase-client";
 import ResultadoPDF from "../../../components/ui/ResultadoPDF";
 
 const ASIGNATURAS = ["Lenguaje y Comunicacion","Matematica","Ciencias Naturales","Historia Geografia y Ciencias Sociales","Ingles","Educacion Fisica y Salud","Artes Visuales","Musica","Tecnologia","Religion","Orientacion","Filosofia","Quimica","Fisica","Biologia"];
-const TEMAS: Record<string, string[]> = {"Lenguaje y Comunicacion":["Comprension lectora","Produccion escrita","Exposicion oral","Analisis literario","Ortografia"],"Matematica":["Fracciones","Geometria","Algebra","Estadistica","Ecuaciones"],"Ciencias Naturales":["Sistema solar","Celula","Ecosistemas","Cuerpo humano","Estados de la materia"],"Historia Geografia y Ciencias Sociales":["Civilizaciones antiguas","Independencia de Chile","Geografia de Chile","Democracia","Derechos humanos"],"Ingles":["Present tense","Past tense","Vocabulary","Reading comprehension","Writing"],"Educacion Fisica y Salud":["Vida saludable","Deportes colectivos","Atletismo","Gimnasia","Alimentacion"],"Artes Visuales":["Tecnicas de dibujo","Pintura","Historia del arte","Arte chileno"],"Musica":["Ritmo y melodia","Instrumentos","Generos musicales","Musica chilena"],"Tecnologia":["Programacion","Seguridad digital","Herramientas digitales","Robotica"],"Religion":["Valores","Biblica","Etica","Convivencia"],"Orientacion":["Autoconocimiento","Proyecto de vida","Habilidades sociales"],"Filosofia":["Logica","Etica","Teoria del conocimiento"],"Quimica":["Tabla periodica","Reacciones quimicas","Acidos y bases"],"Fisica":["Cinematica","Dinamica","Electricidad","Ondas"],"Biologia":["Genetica","Evolucion","Ecologia","Microbiologia"]};
+const TEMAS: Record<string, string[]> = {"Lenguaje y Comunicacion":["Comprension lectora","Produccion escrita","Exposicion oral"],"Matematica":["Fracciones","Geometria","Algebra"],"Ciencias Naturales":["Sistema solar","Celula","Ecosistemas"],"Historia Geografia y Ciencias Sociales":["Civilizaciones antiguas","Independencia de Chile","Democracia"],"Ingles":["Present tense","Past tense","Vocabulary"],"Educacion Fisica y Salud":["Vida saludable","Deportes colectivos","Atletismo"],"Artes Visuales":["Tecnicas de dibujo","Pintura","Arte chileno"],"Musica":["Ritmo y melodia","Instrumentos","Musica chilena"],"Tecnologia":["Programacion","Seguridad digital","Robotica"],"Religion":["Valores","Etica","Convivencia"],"Orientacion":["Autoconocimiento","Proyecto de vida"],"Filosofia":["Logica","Etica"],"Quimica":["Tabla periodica","Reacciones quimicas"],"Fisica":["Cinematica","Electricidad"],"Biologia":["Genetica","Ecologia"]};
 
 export default function Presentaciones() {
   const [tema, setTema] = useState("");
@@ -39,23 +39,18 @@ export default function Presentaciones() {
   async function descargarPPT() {
     if (!contenidoSlides.length) return;
     setGenerandoPPT(true);
-    const pptxgen = (await import("pptxgenjs")).default;
-    const prs = new pptxgen();
-    contenidoSlides.forEach((slide: any, i: number) => {
-      const s = prs.addSlide();
-      if (i === 0) {
-        s.background = { color: "4338CA" };
-        s.addText(slide.titulo || tema, { x: 0.5, y: 1.5, w: 9, h: 1.5, fontSize: 32, bold: true, color: "FFFFFF", align: "center" });
-        s.addText(asignatura + " nivel " + nivel, { x: 0.5, y: 3.2, w: 9, h: 0.6, fontSize: 16, color: "C7D2FE", align: "center" });
-        s.addText("DocenApp", { x: 0.5, y: 4.5, w: 9, h: 0.4, fontSize: 12, color: "A5B4FC", align: "center" });
-      } else {
-        s.background = { color: "FFFFFF" };
-        s.addText(slide.titulo || "", { x: 0.5, y: 0.3, w: 9, h: 0.8, fontSize: 22, bold: true, color: "4338CA" });
-        s.addText(slide.contenido || "", { x: 0.5, y: 1.3, w: 9, h: 3.2, fontSize: 14, color: "374151", valign: "top", wrap: true });
-        s.addText(i + "/" + (contenidoSlides.length - 1), { x: 8.5, y: 4.8, w: 1, h: 0.3, fontSize: 10, color: "9CA3AF", align: "right" });
-      }
+    const res = await fetch("/api/pptx", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ slides: contenidoSlides, tema, asignatura, nivel }),
     });
-    await prs.writeFile({ fileName: tema.replace(/ /g, "_") + ".pptx" });
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = tema.replace(/ /g, "_") + ".pptx";
+    a.click();
+    URL.revokeObjectURL(url);
     setGenerandoPPT(false);
   }
 
