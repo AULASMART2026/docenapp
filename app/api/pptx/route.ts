@@ -4,59 +4,35 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-async function getImgWiki(termino: string): Promise<string | null> {
-  try {
-    const url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(termino);
-    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const imgUrl = data?.thumbnail?.source || data?.originalimage?.source;
-    if (!imgUrl) return null;
-    const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(8000) });
-    if (!imgRes.ok) return null;
-    const buf = await imgRes.arrayBuffer();
-    return "data:" + (imgRes.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
-  } catch { return null; }
-}
-
-async function getImgPexels(query: string, page: number): Promise<string | null> {
-  try {
-    const key = process.env.PEXELS_API_KEY;
-    const res = await fetch("https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=5&page=1&orientation=landscape", {
-      headers: { Authorization: key || "" },
-      signal: AbortSignal.timeout(8000)
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    const fotos = data?.photos || [];
-    if (!fotos.length) return null;
-    const url = fotos[page % fotos.length]?.src?.large2x;
-    if (!url) return null;
-    const imgRes = await fetch(url, { signal: AbortSignal.timeout(8000) });
-    if (!imgRes.ok) return null;
-    const buf = await imgRes.arrayBuffer();
-    return "data:" + (imgRes.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
-  } catch { return null; }
-}
-
 async function getQueryIA(tema: string, titulo: string): Promise<string> {
   try {
     const res = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 30,
-      messages: [{ role: "user", content: "3 palabras en ingles para buscar foto en Pexels sobre: " + tema + " - " + titulo + ". Solo palabras, sin puntuacion." }]
+      max_tokens: 20,
+      messages: [{ role: "user", content: "Dame 3 palabras clave en español para buscar una imagen de: " + tema + " - " + titulo + ". Solo las palabras separadas por espacio." }]
     });
     return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
   } catch { return tema; }
 }
 
-async function getImagen(tema: string, titulo: string, index: number): Promise<string | null> {
-  // 1. Intenta Wikipedia primero (mas contextual)
-  const wikiImg = await getImgWiki(titulo || tema);
-  if (wikiImg) return wikiImg;
-  // 2. Si no hay en Wiki, usa IA + Pexels
-  const query = await getQueryIA(tema, titulo);
-  return await getImgPexels(query, index);
+async function getImgGoogle(query: string, index: number): Promise<string | null> {
+  try {
+    const key = process.env.GOOGLE_API_KEY;
+    const cx = process.env.GOOGLE_CX;
+    const start = (index % 5) + 1;
+    const url = "https://www.googleapis.com/customsearch/v1?key=" + key + "&cx=" + cx + "&q=" + encodeURIComponent(query) + "&searchType=image&num=1&start=" + start + "&imgSize=large&safe=active";
+    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const imgUrl = data?.items?.[0]?.link;
+    if (!imgUrl) return null;
+    const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(10000) });
+    if (!imgRes.ok) return null;
+    const buf = await imgRes.arrayBuffer();
+    const ct = imgRes.headers.get("content-type") || "image/jpeg";
+    if (!ct.startsWith("image/")) return null;
+    return "data:" + ct + ";base64," + Buffer.from(buf).toString("base64");
+  } catch { return null; }
 }
 
 export async function POST(req: Request) {
@@ -65,7 +41,8 @@ export async function POST(req: Request) {
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    const imgs = await Promise.all(slides.map((sl: any, i: number) => getImagen(tema, sl.titulo || tema, i)));
+    const queries = await Promise.all(slides.map((sl: any) => getQueryIA(tema, sl.titulo || tema)));
+    const imgs = await Promise.all(queries.map((q: string, i: number) => getImgGoogle(q, i)));
 
     const COLS = [
       { h: "1D4ED8", a: "F97316", bg: "EFF6FF", t: "1E3A8A" },
