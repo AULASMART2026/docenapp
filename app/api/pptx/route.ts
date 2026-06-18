@@ -8,31 +8,68 @@ async function getQueryIA(tema: string, titulo: string): Promise<string> {
   try {
     const res = await anthropic.messages.create({
       model: "claude-haiku-4-5-20251001",
-      max_tokens: 20,
-      messages: [{ role: "user", content: "Dame 3 palabras clave en español para buscar una imagen de: " + tema + " - " + titulo + ". Solo las palabras separadas por espacio." }]
+      max_tokens: 15,
+      messages: [{ role: "user", content: "Dame 2-3 palabras en ingles para buscar imagen en Wikimedia de: " + tema + " " + titulo + ". Solo palabras." }]
     });
     return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
   } catch { return tema; }
 }
 
-async function getImgGoogle(query: string, index: number): Promise<string | null> {
+async function getImgWikimedia(query: string): Promise<string | null> {
   try {
-    const key = process.env.GOOGLE_API_KEY;
-    const cx = process.env.GOOGLE_CX;
-    const start = (index % 5) + 1;
-    const url = "https://www.googleapis.com/customsearch/v1?key=" + key + "&cx=" + cx + "&q=" + encodeURIComponent(query) + "&searchType=image&num=1&start=" + start + "&imgSize=large&safe=active";
-    const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const url = "https://commons.wikimedia.org/w/api.php?action=query&list=search&srsearch=" + encodeURIComponent(query) + "&srnamespace=6&srlimit=5&format=json&origin=*";
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
     const data = await res.json();
-    const imgUrl = data?.items?.[0]?.link;
-    if (!imgUrl) return null;
-    const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(10000) });
+    const results = data?.query?.search || [];
+    if (!results.length) return null;
+    for (const r of results) {
+      const title = r.title;
+      const ext = title.toLowerCase();
+      if (!ext.endsWith(".jpg") && !ext.endsWith(".jpeg") && !ext.endsWith(".png")) continue;
+      const infoUrl = "https://commons.wikimedia.org/w/api.php?action=query&titles=" + encodeURIComponent(title) + "&prop=imageinfo&iiprop=url&iiurlwidth=800&format=json&origin=*";
+      const infoRes = await fetch(infoUrl, { signal: AbortSignal.timeout(8000) });
+      if (!infoRes.ok) continue;
+      const infoData = await infoRes.json();
+      const pages = Object.values(infoData?.query?.pages || {}) as any[];
+      const imgUrl = pages[0]?.imageinfo?.[0]?.thumburl || pages[0]?.imageinfo?.[0]?.url;
+      if (!imgUrl) continue;
+      const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(8000) });
+      if (!imgRes.ok) continue;
+      const buf = await imgRes.arrayBuffer();
+      const ct = imgRes.headers.get("content-type") || "image/jpeg";
+      if (!ct.startsWith("image/")) continue;
+      return "data:" + ct + ";base64," + Buffer.from(buf).toString("base64");
+    }
+    return null;
+  } catch { return null; }
+}
+
+async function getImgPexels(query: string, page: number): Promise<string | null> {
+  try {
+    const key = process.env.PEXELS_API_KEY;
+    const res = await fetch("https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=5&page=1&orientation=landscape", {
+      headers: { Authorization: key || "" },
+      signal: AbortSignal.timeout(8000)
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fotos = data?.photos || [];
+    if (!fotos.length) return null;
+    const url = fotos[page % fotos.length]?.src?.large2x;
+    if (!url) return null;
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!imgRes.ok) return null;
     const buf = await imgRes.arrayBuffer();
-    const ct = imgRes.headers.get("content-type") || "image/jpeg";
-    if (!ct.startsWith("image/")) return null;
-    return "data:" + ct + ";base64," + Buffer.from(buf).toString("base64");
+    return "data:" + (imgRes.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
   } catch { return null; }
+}
+
+async function getImagen(tema: string, titulo: string, index: number): Promise<string | null> {
+  const query = await getQueryIA(tema, titulo);
+  const wiki = await getImgWikimedia(query);
+  if (wiki) return wiki;
+  return await getImgPexels(query + " education", index);
 }
 
 export async function POST(req: Request) {
@@ -41,8 +78,7 @@ export async function POST(req: Request) {
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    const queries = await Promise.all(slides.map((sl: any) => getQueryIA(tema, sl.titulo || tema)));
-    const imgs = await Promise.all(queries.map((q: string, i: number) => getImgGoogle(q, i)));
+    const imgs = await Promise.all(slides.map((sl: any, i: number) => getImagen(tema, sl.titulo || tema, i)));
 
     const COLS = [
       { h: "1D4ED8", a: "F97316", bg: "EFF6FF", t: "1E3A8A" },
