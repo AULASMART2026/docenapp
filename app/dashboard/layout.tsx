@@ -19,6 +19,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     { href: "/dashboard/rubrica", icon: "📋", label: "Rubricas" },
     { href: "/dashboard/planificacion", icon: "📅", label: "Planificaciones" },
     { href: "/dashboard/evaluacion", icon: "📝", label: "Evaluaciones" },
+    { href: "/dashboard/presentaciones", icon: "📊", label: "Presentaciones" },
     { href: "/dashboard/pie", icon: "♿", label: "PIE" },
     { href: "/dashboard/psicologia", icon: "🧠", label: "Psicologia" },
     { href: "/dashboard/escaneo", icon: "📷", label: "Escaneo" },
