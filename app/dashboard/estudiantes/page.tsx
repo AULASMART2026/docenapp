@@ -26,21 +26,18 @@ export default function Estudiantes() {
     <div className="max-w-4xl mx-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-800">👥 Mis Estudiantes</h1>
+          <h1 className="text-2xl font-bold text-gray-800">Mis Estudiantes</h1>
           <p className="text-gray-500 text-sm">{estudiantes.length} estudiante{estudiantes.length !== 1 ? "s" : ""} registrado{estudiantes.length !== 1 ? "s" : ""}</p>
         </div>
-        <Link href="/dashboard/estudiantes/nuevo"
-          className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
+        <Link href="/dashboard/estudiantes/nuevo" className="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-indigo-700 transition">
           + Nuevo estudiante
         </Link>
       </div>
-
       <div className="mb-4">
         <input value={buscar} onChange={(e) => setBuscar(e.target.value)}
           className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-indigo-400"
           placeholder="Buscar por nombre o curso..." />
       </div>
-
       {loading ? (
         <div className="text-center py-12 text-gray-400">Cargando...</div>
       ) : filtrados.length === 0 ? (
@@ -54,12 +51,12 @@ export default function Estudiantes() {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filtrados.map(e => (
-            <Link key={e.id} href={"/dashboard/estudiantes/" + e.id}
+            <Link key={e.id} href={"/dashboard/estudiantes/id?id=" + e.id}
               className="bg-white rounded-xl shadow-sm p-5 hover:shadow-md transition border border-transparent hover:border-indigo-200">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="font-semibold text-gray-800 text-lg">{e.nombre}</div>
-                  <div className="text-sm text-gray-500 mt-1">{e.curso} {e.colegio ? "— " + e.colegio : ""}</div>
+                  <div className="text-sm text-gray-500 mt-1">{e.curso} {e.colegio ? "- " + e.colegio : ""}</div>
                   {e.diagnostico && <div className="text-xs text-indigo-600 mt-2 bg-indigo-50 px-2 py-1 rounded-full inline-block">{e.diagnostico}</div>}
                 </div>
                 <div className="text-2xl">👤</div>
