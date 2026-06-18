@@ -1,20 +1,13 @@
 ﻿import { NextResponse } from "next/server";
 import pptxgen from "pptxgenjs";
 
-async function getImagenBase64(tema: string, asignatura: string, index: number): Promise<string | null> {
+async function getImg(query: string, sig: number): Promise<string | null> {
   try {
-    const terminos = [tema, asignatura, "education", "school", "learning", "classroom"];
-    const query = encodeURIComponent(terminos.slice(0, 2).join(" "));
-    const url = `https://source.unsplash.com/800x450/?${query}&sig=${index}`;
-    const res = await fetch(url);
+    const res = await fetch("https://source.unsplash.com/960x540/?" + encodeURIComponent(query) + "&sig=" + sig, { signal: AbortSignal.timeout(8000) });
     if (!res.ok) return null;
-    const buffer = await res.arrayBuffer();
-    const base64 = Buffer.from(buffer).toString("base64");
-    const ct = res.headers.get("content-type") || "image/jpeg";
-    return `data:${ct};base64,${base64}`;
-  } catch {
-    return null;
-  }
+    const buf = await res.arrayBuffer();
+    return "data:" + (res.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
+  } catch { return null; }
 }
 
 export async function POST(req: Request) {
@@ -23,61 +16,60 @@ export async function POST(req: Request) {
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    const imagenes: (string | null)[] = [];
-    for (let i = 0; i < slides.length; i++) {
-      const img = await getImagenBase64(tema, asignatura, i);
-      imagenes.push(img);
-    }
+    const imgs = await Promise.all(slides.map((_: any, i: number) => getImg(tema + " " + asignatura, i)));
 
     for (let i = 0; i < slides.length; i++) {
-      const slide = slides[i];
+      const sl = slides[i];
       const s = prs.addSlide();
-      const img = imagenes[i];
+      const img = imgs[i];
 
       if (i === 0) {
-        if (img) {
-          s.addImage({ data: img, x: 0, y: 0, w: 10, h: 7.5, sizing: { type: "cover", w: 10, h: 7.5 } });
-        }
-        s.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: 10, h: 7.5, fill: { color: "1E1B4B", transparency: 45 }, line: { color: "1E1B4B", transparency: 45 } });
-        s.addShape(prs.ShapeType.rect, { x: 0, y: 4.5, w: 10, h: 3, fill: { color: "4338CA", transparency: 20 }, line: { color: "4338CA", transparency: 20 } });
-        s.addText("DocenApp", { x: 0.5, y: 0.3, w: 9, h: 0.4, fontSize: 10, color: "C7D2FE", align: "center" });
-        s.addText(slide.titulo || tema, { x: 0.5, y: 1.2, w: 9, h: 2.8, fontSize: 38, bold: true, color: "FFFFFF", align: "center", valign: "middle", shadow: { type: "outer", color: "000000", blur: 8, offset: 4, angle: 45 } });
-        s.addText(asignatura + "  |  " + nivel.toUpperCase(), { x: 0.5, y: 4.7, w: 9, h: 0.7, fontSize: 18, color: "E0E7FF", align: "center", bold: true });
-        s.addShape(prs.ShapeType.rect, { x: 3.5, y: 5.5, w: 3, h: 0.05, fill: { color: "818CF8" }, line: { color: "818CF8" } });
+        s.background = { color: "1E3A8A" };
+        if (img) s.addImage({ data: img, x: 0, y: 0, w: 10, h: 7.5, sizing: { type: "cover", w: 10, h: 7.5 } });
+        s.addShape("rect", { x: 0, y: 0, w: 10, h: 7.5, fill: { color: "0F172A", transparency: 40 }, line: { color: "0F172A", transparency: 40 } });
+        s.addShape("rect", { x: 0, y: 4.6, w: 10, h: 2.9, fill: { color: "1E3A8A", transparency: 15 }, line: { color: "1E3A8A", transparency: 15 } });
+        s.addShape("rect", { x: 0, y: 0, w: 0.35, h: 7.5, fill: { color: "7C3AED" }, line: { color: "7C3AED" } });
+        s.addText("DocenApp", { x: 0.6, y: 0.2, w: 9, h: 0.4, fontSize: 10, color: "BFDBFE", align: "left" });
+        s.addText(sl.titulo || tema, { x: 0.6, y: 0.9, w: 8.8, h: 3.2, fontSize: 40, bold: true, color: "FFFFFF", align: "left", valign: "middle" });
+        s.addShape("rect", { x: 0.6, y: 4.5, w: 2, h: 0.06, fill: { color: "7C3AED" }, line: { color: "7C3AED" } });
+        s.addText(asignatura, { x: 0.6, y: 4.75, w: 9, h: 0.6, fontSize: 18, bold: true, color: "FFFFFF", align: "left" });
+        s.addText(nivel.toUpperCase(), { x: 0.6, y: 5.45, w: 9, h: 0.4, fontSize: 12, color: "BFDBFE", align: "left" });
 
       } else if (i === slides.length - 1) {
-        if (img) {
-          s.addImage({ data: img, x: 0, y: 0, w: 10, h: 7.5, sizing: { type: "cover", w: 10, h: 7.5 } });
-        }
-        s.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: 10, h: 7.5, fill: { color: "312E81", transparency: 30 }, line: { color: "312E81", transparency: 30 } });
-        s.addText("Conclusion", { x: 0.5, y: 1, w: 9, h: 0.7, fontSize: 16, color: "C7D2FE", align: "center", bold: false });
-        s.addText(slide.titulo || "Cierre", { x: 0.5, y: 1.8, w: 9, h: 1.2, fontSize: 32, bold: true, color: "FFFFFF", align: "center" });
-        s.addShape(prs.ShapeType.roundRect, { x: 1, y: 3.2, w: 8, h: 2.8, fill: { color: "FFFFFF", transparency: 15 }, line: { color: "FFFFFF", transparency: 50 }, rectRadius: 0.15 });
-        s.addText(slide.contenido || "", { x: 1.3, y: 3.4, w: 7.4, h: 2.4, fontSize: 14, color: "FFFFFF", align: "center", valign: "middle", wrap: true });
-        s.addText("Generado con DocenApp", { x: 0.5, y: 7, w: 9, h: 0.3, fontSize: 9, color: "A5B4FC", align: "center" });
+        s.background = { color: "1E3A8A" };
+        if (img) s.addImage({ data: img, x: 0, y: 0, w: 10, h: 7.5, sizing: { type: "cover", w: 10, h: 7.5 } });
+        s.addShape("rect", { x: 0, y: 0, w: 10, h: 7.5, fill: { color: "0F172A", transparency: 40 }, line: { color: "0F172A", transparency: 40 } });
+        s.addShape("rect", { x: 0, y: 0, w: 0.35, h: 7.5, fill: { color: "059669" }, line: { color: "059669" } });
+        s.addText("Conclusion", { x: 0.6, y: 0.7, w: 9, h: 0.5, fontSize: 13, color: "BFDBFE", align: "left" });
+        s.addText(sl.titulo || "Cierre", { x: 0.6, y: 1.3, w: 9, h: 1.1, fontSize: 32, bold: true, color: "FFFFFF", align: "left" });
+        s.addShape("roundRect", { x: 0.6, y: 2.8, w: 8.8, h: 3.5, fill: { color: "FFFFFF", transparency: 20 }, line: { color: "FFFFFF", transparency: 60 }, rectRadius: 0.15 });
+        s.addText(sl.contenido || "", { x: 0.9, y: 3.0, w: 8.2, h: 3.1, fontSize: 15, color: "FFFFFF", align: "center", valign: "middle", wrap: true });
+        s.addText("Gracias | DocenApp", { x: 0.5, y: 6.9, w: 9, h: 0.35, fontSize: 9, color: "BFDBFE", align: "center" });
 
       } else {
-        const esDerecha = i % 2 === 0;
         s.background = { color: "F8FAFC" };
-        s.addShape(prs.ShapeType.rect, { x: 0, y: 0, w: 10, h: 1.15, fill: { color: "4338CA" }, line: { color: "4338CA" } });
-        s.addShape(prs.ShapeType.rect, { x: 0, y: 7.1, w: 10, h: 0.4, fill: { color: "E0E7FF" }, line: { color: "E0E7FF" } });
-        s.addText(slide.titulo || "", { x: 0.35, y: 0.18, w: 7.5, h: 0.8, fontSize: 21, bold: true, color: "FFFFFF", valign: "middle" });
-        s.addText(i + " / " + (slides.length - 1), { x: 8.2, y: 0.3, w: 1.6, h: 0.55, fontSize: 12, color: "C7D2FE", align: "right" });
+        s.addShape("rect", { x: 0, y: 0, w: 10, h: 1.05, fill: { color: "1E3A8A" }, line: { color: "1E3A8A" } });
+        s.addShape("rect", { x: 0, y: 0, w: 0.3, h: 1.05, fill: { color: "2563EB" }, line: { color: "2563EB" } });
+        s.addText(sl.titulo || "", { x: 0.5, y: 0.12, w: 8, h: 0.8, fontSize: 20, bold: true, color: "FFFFFF", valign: "middle" });
+        s.addText(i + "/" + (slides.length - 1), { x: 8.3, y: 0.25, w: 1.5, h: 0.55, fontSize: 11, color: "BFDBFE", align: "right" });
+        s.addShape("rect", { x: 0, y: 7.1, w: 10, h: 0.4, fill: { color: "DBEAFE" }, line: { color: "DBEAFE" } });
+        s.addText("DocenApp | " + asignatura, { x: 0.3, y: 7.18, w: 9.4, h: 0.22, fontSize: 8, color: "1E3A8A", align: "right" });
 
         if (img) {
-          const imgX = esDerecha ? 6.2 : 0.3;
-          const textoX = esDerecha ? 0.3 : 4.2;
-          s.addImage({ data: img, x: imgX, y: 1.3, w: 3.5, h: 2.6, sizing: { type: "cover", w: 3.5, h: 2.6 } });
-          s.addShape(prs.ShapeType.roundRect, { x: imgX, y: 1.3, w: 3.5, h: 2.6, fill: { color: "4338CA", transparency: 90 }, line: { color: "6366F1", transparency: 60 }, rectRadius: 0.1 });
-          const lineas = (slide.contenido || "").split("\n").filter((l: string) => l.trim());
-          const bullets = lineas.map((l: string) => ({ text: "• " + l.trim(), options: { fontSize: 13, color: "1E1B4B", breakLine: true, paraSpaceAfter: 8 } }));
-          s.addText(bullets.length ? bullets : [{ text: slide.contenido || "", options: { fontSize: 13, color: "1E1B4B", breakLine: false } }], { x: textoX, y: 1.3, w: 5.6, h: 5.4, valign: "top", wrap: true });
+          const derecha = i % 2 !== 0;
+          const ix = derecha ? 5.85 : 0.25;
+          const tx = derecha ? 0.4 : 4.2;
+          s.addImage({ data: img, x: ix, y: 1.15, w: 3.9, h: 5.75, sizing: { type: "cover", w: 3.9, h: 5.75 } });
+          s.addShape("rect", { x: ix, y: 1.15, w: 3.9, h: 5.75, fill: { color: "1E3A8A", transparency: 80 }, line: { color: "1E3A8A", transparency: 80 } });
+          s.addShape("rect", { x: tx - 0.05, y: 1.15, w: 5.45, h: 5.75, fill: { color: "F1F5F9" }, line: { color: "F1F5F9" } });
+          const lineas = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
+          s.addText(lineas.map((l: string) => ({ text: l, options: { fontSize: 13, color: "0F172A", breakLine: true, paraSpaceAfter: 10, bullet: { indent: 15 } } })), { x: tx + 0.1, y: 1.3, w: 5.2, h: 5.4, valign: "top", wrap: true });
         } else {
-          const lineas = (slide.contenido || "").split("\n").filter((l: string) => l.trim());
-          const bullets = lineas.map((l: string) => ({ text: "• " + l.trim(), options: { fontSize: 14, color: "1E1B4B", breakLine: true, paraSpaceAfter: 10 } }));
-          s.addText(bullets.length ? bullets : [{ text: slide.contenido || "", options: { fontSize: 14, color: "1E1B4B", breakLine: false } }], { x: 0.4, y: 1.3, w: 9.2, h: 5.5, valign: "top", wrap: true });
+          s.addShape("rect", { x: 0.3, y: 1.15, w: 9.4, h: 5.75, fill: { color: "F1F5F9" }, line: { color: "F1F5F9" } });
+          s.addShape("rect", { x: 0.3, y: 1.15, w: 0.12, h: 5.75, fill: { color: "2563EB" }, line: { color: "2563EB" } });
+          const lineas = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
+          s.addText(lineas.map((l: string) => ({ text: l, options: { fontSize: 14, color: "0F172A", breakLine: true, paraSpaceAfter: 11, bullet: { indent: 15 } } })), { x: 0.6, y: 1.3, w: 9.0, h: 5.4, valign: "top", wrap: true });
         }
-        s.addText("DocenApp  |  " + asignatura, { x: 0.3, y: 7.15, w: 9.4, h: 0.25, fontSize: 8, color: "6366F1", align: "right" });
       }
     }
 
