@@ -4,38 +4,59 @@ import Anthropic from "@anthropic-ai/sdk";
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-async function getQuery(tema: string, titulo: string): Promise<string> {
+async function getImgWiki(termino: string): Promise<string | null> {
   try {
-    const res = await anthropic.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 50,
-      messages: [{
-        role: "user",
-        content: "Genera 3 palabras en ingles para buscar en Pexels una foto relacionada con: tema=" + tema + " slide=" + titulo + ". Solo las palabras separadas por espacios, sin explicacion."
-      }]
-    });
-    return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
-  } catch { return tema + " education"; }
+    const url = "https://en.wikipedia.org/api/rest_v1/page/summary/" + encodeURIComponent(termino);
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const imgUrl = data?.thumbnail?.source || data?.originalimage?.source;
+    if (!imgUrl) return null;
+    const imgRes = await fetch(imgUrl, { signal: AbortSignal.timeout(8000) });
+    if (!imgRes.ok) return null;
+    const buf = await imgRes.arrayBuffer();
+    return "data:" + (imgRes.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
+  } catch { return null; }
 }
 
-async function getImg(query: string, page: number): Promise<string | null> {
+async function getImgPexels(query: string, page: number): Promise<string | null> {
   try {
     const key = process.env.PEXELS_API_KEY;
     const res = await fetch("https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=5&page=1&orientation=landscape", {
       headers: { Authorization: key || "" },
-      signal: AbortSignal.timeout(10000)
+      signal: AbortSignal.timeout(8000)
     });
     if (!res.ok) return null;
     const data = await res.json();
     const fotos = data?.photos || [];
     if (!fotos.length) return null;
-    const url = fotos[page % fotos.length]?.src?.large2x || fotos[page % fotos.length]?.src?.large;
+    const url = fotos[page % fotos.length]?.src?.large2x;
     if (!url) return null;
-    const imgRes = await fetch(url, { signal: AbortSignal.timeout(10000) });
+    const imgRes = await fetch(url, { signal: AbortSignal.timeout(8000) });
     if (!imgRes.ok) return null;
     const buf = await imgRes.arrayBuffer();
     return "data:" + (imgRes.headers.get("content-type") || "image/jpeg") + ";base64," + Buffer.from(buf).toString("base64");
   } catch { return null; }
+}
+
+async function getQueryIA(tema: string, titulo: string): Promise<string> {
+  try {
+    const res = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 30,
+      messages: [{ role: "user", content: "3 palabras en ingles para buscar foto en Pexels sobre: " + tema + " - " + titulo + ". Solo palabras, sin puntuacion." }]
+    });
+    return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
+  } catch { return tema; }
+}
+
+async function getImagen(tema: string, titulo: string, index: number): Promise<string | null> {
+  // 1. Intenta Wikipedia primero (mas contextual)
+  const wikiImg = await getImgWiki(titulo || tema);
+  if (wikiImg) return wikiImg;
+  // 2. Si no hay en Wiki, usa IA + Pexels
+  const query = await getQueryIA(tema, titulo);
+  return await getImgPexels(query, index);
 }
 
 export async function POST(req: Request) {
@@ -44,9 +65,7 @@ export async function POST(req: Request) {
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    // IA genera query contextual para cada slide
-    const queries = await Promise.all(slides.map((sl: any) => getQuery(tema, sl.titulo || tema)));
-    const imgs = await Promise.all(queries.map((q: string, i: number) => getImg(q, i)));
+    const imgs = await Promise.all(slides.map((sl: any, i: number) => getImagen(tema, sl.titulo || tema, i)));
 
     const COLS = [
       { h: "1D4ED8", a: "F97316", bg: "EFF6FF", t: "1E3A8A" },
