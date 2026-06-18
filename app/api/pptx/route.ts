@@ -70,7 +70,6 @@ export async function POST(req: Request) {
         s.addShape("rect", { x: 0.7, y: 4.1, w: 4, h: 0.08, fill: { color: "F97316" }, line: { color: "F97316" } });
         s.addText(asignatura, { x: 0.7, y: 4.3, w: 9, h: 0.65, fontSize: 20, bold: true, color: "FFFFFF", align: "left" });
         s.addText("Nivel: " + nivel, { x: 0.7, y: 5.05, w: 9, h: 0.4, fontSize: 14, color: "FED7AA", align: "left" });
-
       } else if (i === slides.length - 1) {
         s.background = { color: "0F172A" };
         if (img) s.addImage({ data: img, x: 0, y: 0, w: 10, h: 7.5, sizing: { type: "cover", w: 10, h: 7.5 } });
@@ -83,7 +82,6 @@ export async function POST(req: Request) {
         s.addShape("rect", { x: 0.6, y: 3.9, w: 8.8, h: 3.0, fill: { color: "064E3B", transparency: 10 }, line: { color: "10B981", transparency: 40 } });
         s.addText(sl.contenido || "", { x: 0.9, y: 4.05, w: 8.2, h: 2.7, fontSize: 15, color: "FFFFFF", align: "center", valign: "middle", wrap: true });
         s.addText("Gracias  |  DocenApp", { x: 0.5, y: 7.05, w: 9, h: 0.35, fontSize: 12, color: "6EE7B7", align: "center", bold: true });
-
       } else {
         s.background = { color: c.bg };
         s.addShape("rect", { x: 0, y: 0, w: 10, h: 1.2, fill: { color: c.h }, line: { color: c.h } });
@@ -111,8 +109,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const buffer = await prs.write({ outputType: "nodebuffer" });
-    return new NextResponse(buffer as Buffer, {
+    const buffer = await prs.write({ outputType: "nodebuffer" }) as unknown as Uint8Array;
+    return new NextResponse(buffer, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "Content-Disposition": "attachment; filename=presentacion.pptx",
