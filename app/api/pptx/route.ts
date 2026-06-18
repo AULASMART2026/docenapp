@@ -109,8 +109,8 @@ export async function POST(req: Request) {
       }
     }
 
-    const buffer = await prs.write({ outputType: "nodebuffer" }) as unknown as Uint8Array;
-    return new NextResponse(buffer, {
+    const buffer = await prs.write({ outputType: "nodebuffer" }) as unknown as ArrayBuffer;
+    return new NextResponse(buffer as BodyInit, {
       headers: {
         "Content-Type": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
         "Content-Disposition": "attachment; filename=presentacion.pptx",
