@@ -15,7 +15,9 @@ const nextConfig = {
     }
     return config;
   },
-  serverExternalPackages: ["pptxgenjs"],
+  experimental: {
+    serverComponentsExternalPackages: ["pptxgenjs"],
+  },
 };
 
 export default nextConfig;
