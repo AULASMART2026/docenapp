@@ -1,11 +1,27 @@
 ﻿import { NextResponse } from "next/server";
 import pptxgen from "pptxgenjs";
+import Anthropic from "@anthropic-ai/sdk";
 
-async function getImg(query: string, pagina: number): Promise<string | null> {
+const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+
+async function getQuery(tema: string, titulo: string): Promise<string> {
+  try {
+    const res = await anthropic.messages.create({
+      model: "claude-haiku-4-5-20251001",
+      max_tokens: 50,
+      messages: [{
+        role: "user",
+        content: "Genera 3 palabras en ingles para buscar en Pexels una foto relacionada con: tema=" + tema + " slide=" + titulo + ". Solo las palabras separadas por espacios, sin explicacion."
+      }]
+    });
+    return res.content[0].type === "text" ? res.content[0].text.trim() : tema;
+  } catch { return tema + " education"; }
+}
+
+async function getImg(query: string, page: number): Promise<string | null> {
   try {
     const key = process.env.PEXELS_API_KEY;
-    const q = encodeURIComponent(query);
-    const res = await fetch("https://api.pexels.com/v1/search?query=" + q + "&per_page=5&page=1&orientation=landscape", {
+    const res = await fetch("https://api.pexels.com/v1/search?query=" + encodeURIComponent(query) + "&per_page=5&page=1&orientation=landscape", {
       headers: { Authorization: key || "" },
       signal: AbortSignal.timeout(10000)
     });
@@ -13,8 +29,7 @@ async function getImg(query: string, pagina: number): Promise<string | null> {
     const data = await res.json();
     const fotos = data?.photos || [];
     if (!fotos.length) return null;
-    const foto = fotos[pagina % fotos.length];
-    const url = foto?.src?.large2x || foto?.src?.large;
+    const url = fotos[page % fotos.length]?.src?.large2x || fotos[page % fotos.length]?.src?.large;
     if (!url) return null;
     const imgRes = await fetch(url, { signal: AbortSignal.timeout(10000) });
     if (!imgRes.ok) return null;
@@ -23,71 +38,29 @@ async function getImg(query: string, pagina: number): Promise<string | null> {
   } catch { return null; }
 }
 
-function getQueries(tema: string, asignatura: string, tituloSlide: string): string {
-  const t = tema.toLowerCase();
-  const a = asignatura.toLowerCase();
-  const ts = tituloSlide.toLowerCase();
-  
-  // Mapeo contextual por asignatura
-  if (a.includes("lenguaje") || a.includes("literatura")) {
-    if (t.includes("neruda") || t.includes("mistral") || t.includes("parra") || t.includes("poeta")) return "poetry book reading literature Chile";
-    if (t.includes("novela") || t.includes("cuento")) return "books reading story literature";
-    if (t.includes("oral") || t.includes("exposicion")) return "students presentation speaking classroom";
-    return "reading books library education";
-  }
-  if (a.includes("matematica")) {
-    if (ts.includes("fracci") || t.includes("fracci")) return "math fractions numbers chalkboard";
-    if (ts.includes("geometr") || t.includes("geometr")) return "geometry shapes mathematics";
-    if (ts.includes("algebra") || t.includes("algebra")) return "algebra equations mathematics board";
-    return "mathematics numbers classroom students";
-  }
-  if (a.includes("historia") || a.includes("ciencias sociales")) {
-    if (t.includes("chile") || t.includes("chilena")) return "Chile history culture Andes Santiago";
-    if (t.includes("independencia")) return "independence history Latin America monument";
-    if (t.includes("democracia")) return "democracy government election civic";
-    return "history map ancient civilization";
-  }
-  if (a.includes("ciencias naturales") || a.includes("biolog") || a.includes("quimic") || a.includes("fisica")) {
-    if (t.includes("celula") || ts.includes("celula")) return "cell biology microscope science lab";
-    if (t.includes("solar") || ts.includes("solar")) return "solar system planets astronomy space";
-    if (t.includes("ecosistema")) return "ecosystem nature forest wildlife";
-    return "science laboratory experiment students";
-  }
-  if (a.includes("ingles")) return "english language learning classroom international";
-  if (a.includes("arte") || a.includes("visual")) return "art painting creative studio colors";
-  if (a.includes("musica")) return "music instruments concert performance";
-  if (a.includes("educacion fisica")) return "sports students physical activity exercise";
-  if (a.includes("tecnologia")) return "technology computer programming digital";
-  
-  // Query generico mejorado
-  return tema + " education school learning";
-}
-
 export async function POST(req: Request) {
   try {
     const { slides, tema, asignatura, nivel } = await req.json();
     const prs = new pptxgen();
     prs.layout = "LAYOUT_16x9";
 
-    // Query unico y contextual por slide
-    const imgs = await Promise.all(slides.map((sl: any, i: number) => {
-      const query = getQueries(tema, asignatura, sl.titulo || "");
-      return getImg(query, i);
-    }));
+    // IA genera query contextual para cada slide
+    const queries = await Promise.all(slides.map((sl: any) => getQuery(tema, sl.titulo || tema)));
+    const imgs = await Promise.all(queries.map((q: string, i: number) => getImg(q, i)));
 
-    const COLORES = [
-      { header: "1D4ED8", accent: "F97316", bg: "EFF6FF", text: "1E3A8A" },
-      { header: "7C3AED", accent: "10B981", bg: "F5F3FF", text: "4C1D95" },
-      { header: "0F766E", accent: "F97316", bg: "F0FDF4", text: "134E4A" },
-      { header: "B45309", accent: "3B82F6", bg: "FFFBEB", text: "78350F" },
-      { header: "BE185D", accent: "06B6D4", bg: "FDF2F8", text: "831843" },
+    const COLS = [
+      { h: "1D4ED8", a: "F97316", bg: "EFF6FF", t: "1E3A8A" },
+      { h: "7C3AED", a: "10B981", bg: "F5F3FF", t: "4C1D95" },
+      { h: "0F766E", a: "F97316", bg: "F0FDF4", t: "134E4A" },
+      { h: "B45309", a: "3B82F6", bg: "FFFBEB", t: "78350F" },
+      { h: "BE185D", a: "06B6D4", bg: "FDF2F8", t: "831843" },
     ];
 
     for (let i = 0; i < slides.length; i++) {
       const sl = slides[i];
       const s = prs.addSlide();
       const img = imgs[i];
-      const col = COLORES[i % COLORES.length];
+      const c = COLS[i % COLS.length];
 
       if (i === 0) {
         s.background = { color: "0F172A" };
@@ -96,7 +69,7 @@ export async function POST(req: Request) {
         s.addShape("rect", { x: 0, y: 4.2, w: 10, h: 3.3, fill: { color: "0F172A", transparency: 0 }, line: { color: "0F172A", transparency: 0 } });
         s.addShape("rect", { x: 0, y: 0, w: 10, h: 0.2, fill: { color: "F97316" }, line: { color: "F97316" } });
         s.addShape("rect", { x: 0, y: 0.2, w: 0.5, h: 7.3, fill: { color: "F97316" }, line: { color: "F97316" } });
-        s.addText("📚 DocenApp", { x: 0.7, y: 0.3, w: 9, h: 0.45, fontSize: 12, color: "FED7AA", bold: true, align: "left" });
+        s.addText("DocenApp", { x: 0.7, y: 0.3, w: 9, h: 0.45, fontSize: 12, color: "FED7AA", bold: true, align: "left" });
         s.addText(sl.titulo || tema, { x: 0.7, y: 0.9, w: 8.6, h: 3.0, fontSize: 40, bold: true, color: "FFFFFF", align: "left", valign: "middle" });
         s.addShape("rect", { x: 0.7, y: 4.1, w: 4, h: 0.08, fill: { color: "F97316" }, line: { color: "F97316" } });
         s.addText(asignatura, { x: 0.7, y: 4.3, w: 9, h: 0.65, fontSize: 20, bold: true, color: "FFFFFF", align: "left" });
@@ -113,33 +86,32 @@ export async function POST(req: Request) {
         s.addText(sl.titulo || "Cierre", { x: 0.7, y: 0.9, w: 8.6, h: 1.3, fontSize: 34, bold: true, color: "FFFFFF", align: "left" });
         s.addShape("rect", { x: 0.6, y: 3.9, w: 8.8, h: 3.0, fill: { color: "064E3B", transparency: 10 }, line: { color: "10B981", transparency: 40 } });
         s.addText(sl.contenido || "", { x: 0.9, y: 4.05, w: 8.2, h: 2.7, fontSize: 15, color: "FFFFFF", align: "center", valign: "middle", wrap: true });
-        s.addText("¡Gracias!  |  DocenApp", { x: 0.5, y: 7.05, w: 9, h: 0.35, fontSize: 12, color: "6EE7B7", align: "center", bold: true });
+        s.addText("Gracias  |  DocenApp", { x: 0.5, y: 7.05, w: 9, h: 0.35, fontSize: 12, color: "6EE7B7", align: "center", bold: true });
 
       } else {
-        s.background = { color: col.bg };
-        s.addShape("rect", { x: 0, y: 0, w: 10, h: 1.2, fill: { color: col.header }, line: { color: col.header } });
-        s.addShape("rect", { x: 0, y: 0, w: 0.45, h: 1.2, fill: { color: col.accent }, line: { color: col.accent } });
+        s.background = { color: c.bg };
+        s.addShape("rect", { x: 0, y: 0, w: 10, h: 1.2, fill: { color: c.h }, line: { color: c.h } });
+        s.addShape("rect", { x: 0, y: 0, w: 0.45, h: 1.2, fill: { color: c.a }, line: { color: c.a } });
         s.addText(sl.titulo || "", { x: 0.65, y: 0.15, w: 8.0, h: 0.9, fontSize: 21, bold: true, color: "FFFFFF", valign: "middle" });
-        s.addText(i + " / " + (slides.length - 1), { x: 8.4, y: 0.3, w: 1.4, h: 0.6, fontSize: 11, color: "FFFFFF", align: "right" });
+        s.addText(i + "/" + (slides.length - 1), { x: 8.5, y: 0.3, w: 1.3, h: 0.6, fontSize: 11, color: "FFFFFF", align: "right" });
 
         if (img) {
-          const derecha = i % 2 !== 0;
-          const ix = derecha ? 5.6 : 0.3;
-          const tx = derecha ? 0.45 : 4.35;
-          const tw = 4.9;
+          const dr = i % 2 !== 0;
+          const ix = dr ? 5.6 : 0.3;
+          const tx = dr ? 0.45 : 4.35;
           s.addImage({ data: img, x: ix, y: 1.25, w: 4.1, h: 5.85, sizing: { type: "cover", w: 4.1, h: 5.85 } });
-          s.addShape("rect", { x: ix, y: 1.25, w: 4.1, h: 5.85, fill: { color: col.header, transparency: 55 }, line: { color: col.header, transparency: 55 } });
-          s.addShape("rect", { x: tx - 0.1, y: 1.25, w: tw + 0.15, h: 5.85, fill: { color: "FFFFFF" }, line: { color: "FFFFFF" } });
-          s.addShape("rect", { x: tx - 0.1, y: 1.25, w: 0.15, h: 5.85, fill: { color: col.accent }, line: { color: col.accent } });
-          const lineas = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
-          s.addText(lineas.map((l: string) => ({ text: "▸  " + l, options: { fontSize: 13, color: col.text, breakLine: true, paraSpaceAfter: 11 } })), { x: tx + 0.12, y: 1.4, w: tw - 0.25, h: 5.6, valign: "top", wrap: true });
+          s.addShape("rect", { x: ix, y: 1.25, w: 4.1, h: 5.85, fill: { color: c.h, transparency: 55 }, line: { color: c.h, transparency: 55 } });
+          s.addShape("rect", { x: tx - 0.1, y: 1.25, w: 5.05, h: 5.85, fill: { color: "FFFFFF" }, line: { color: "FFFFFF" } });
+          s.addShape("rect", { x: tx - 0.1, y: 1.25, w: 0.15, h: 5.85, fill: { color: c.a }, line: { color: c.a } });
+          const ls = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
+          s.addText(ls.map((l: string) => ({ text: "▸  " + l, options: { fontSize: 13, color: c.t, breakLine: true, paraSpaceAfter: 11 } })), { x: tx + 0.12, y: 1.4, w: 4.7, h: 5.6, valign: "top", wrap: true });
         } else {
           s.addShape("rect", { x: 0.3, y: 1.25, w: 9.4, h: 5.85, fill: { color: "FFFFFF" }, line: { color: "FFFFFF" } });
-          s.addShape("rect", { x: 0.3, y: 1.25, w: 0.15, h: 5.85, fill: { color: col.accent }, line: { color: col.accent } });
-          const lineas = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
-          s.addText(lineas.map((l: string) => ({ text: "▸  " + l, options: { fontSize: 14, color: col.text, breakLine: true, paraSpaceAfter: 12 } })), { x: 0.6, y: 1.4, w: 9.0, h: 5.6, valign: "top", wrap: true });
+          s.addShape("rect", { x: 0.3, y: 1.25, w: 0.15, h: 5.85, fill: { color: c.a }, line: { color: c.a } });
+          const ls = (sl.contenido || "").split("\n").map((l: string) => l.trim()).filter(Boolean);
+          s.addText(ls.map((l: string) => ({ text: "▸  " + l, options: { fontSize: 14, color: c.t, breakLine: true, paraSpaceAfter: 12 } })), { x: 0.6, y: 1.4, w: 9.0, h: 5.6, valign: "top", wrap: true });
         }
-        s.addShape("rect", { x: 0, y: 7.1, w: 10, h: 0.4, fill: { color: col.header }, line: { color: col.header } });
+        s.addShape("rect", { x: 0, y: 7.1, w: 10, h: 0.4, fill: { color: c.h }, line: { color: c.h } });
         s.addText("DocenApp  |  " + asignatura + "  |  " + nivel, { x: 0.3, y: 7.17, w: 9.4, h: 0.25, fontSize: 8.5, color: "FFFFFF", align: "center" });
       }
     }
