@@ -15,6 +15,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   const links = [
     { href: "/dashboard", icon: "🏠", label: "Inicio" },
+    { href: "/dashboard/cursos", icon: "🏫", label: "Cursos" },
     { href: "/dashboard/estudiantes", icon: "👥", label: "Estudiantes" },
     { href: "/dashboard/rubrica", icon: "📋", label: "Rubricas" },
     { href: "/dashboard/planificacion", icon: "📅", label: "Planificaciones" },
