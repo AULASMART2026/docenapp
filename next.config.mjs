@@ -5,12 +5,17 @@ const nextConfig = {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
+        net: false,
+        tls: false,
         path: false,
         stream: false,
+        zlib: false,
+        crypto: false,
       };
     }
     return config;
   },
+  serverExternalPackages: ["pptxgenjs"],
 };
 
 export default nextConfig;
